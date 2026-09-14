@@ -1,157 +1,312 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AgentForge</title>
-<meta name="description" content="A multi-agent workflow system — planner, researcher, executor and critic as an explicit LangGraph state machine. Run it live.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>◆</text></svg>">
+<meta name="description" content="A multi-agent workflow system — planner, researcher, executor and critic as an explicit LangGraph state machine. Run it live in the browser.">
+<meta property="og:title" content="AgentForge">
+<meta property="og:description" content="Four agents as an explicit state machine. Watch the critic route work back.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2288%22>◈</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
-:root{
-  --bg:#0C0E10; --panel:#14171A; --panel-2:#1B1F23; --line:#262B30;
-  --fg:#E8EAEC; --fg-2:#98A1A8; --fg-3:#5F686F;
-  --plan:#7AA2F7; --res:#7DCFB6; --exec:#E0AF68; --crit:#F7768E; --ok:#9ECE6A;
+/* ── tokens ─────────────────────────────────────────────────────── */
+:root[data-theme="dark"]{
+  --bg:#0B0D10; --bg-2:#111519; --panel:#151A1F; --panel-2:#1B2128;
+  --line:#242C34; --line-2:#1C232A;
+  --fg:#E9ECEF; --fg-2:#94A0AB; --fg-3:#5D6874;
+  --planner:#7AA2F7; --researcher:#5FD3B4; --executor:#E8B65A; --critic:#F2647C;
+  --ok:#8FD16A; --shadow:0 24px 60px -32px rgba(0,0,0,.9);
+}
+:root[data-theme="light"]{
+  --bg:#FBFAF8; --bg-2:#F3F1ED; --panel:#FFFFFF; --panel-2:#F6F4F0;
+  --line:#E2DED6; --line-2:#EDEAE4;
+  --fg:#14181C; --fg-2:#565F68; --fg-3:#8A939C;
+  --planner:#2F5FC4; --researcher:#0F7A62; --executor:#9A6A10; --critic:#C03350;
+  --ok:#3F7A22; --shadow:0 22px 50px -30px rgba(20,24,28,.34);
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;line-height:1.55}
-.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 60px}
-a{color:var(--res)}
-header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:26px}
-h1{font-family:"JetBrains Mono",monospace;font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0 0 8px}
-h1 span{color:var(--res)}
-.sub{color:var(--fg-2);font-size:14.5px;margin:0;max-width:70ch}
-.links{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-family:"JetBrains Mono",monospace;font-size:12px}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font-family:"Instrument Sans",system-ui,sans-serif;line-height:1.55;overflow-x:hidden}
+a{color:var(--researcher)}
+::selection{background:var(--researcher);color:var(--bg)}
 
-.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:22px}
-@media(max-width:860px){.grid{grid-template-columns:1fr}}
+/* ── background: the graph itself, running ─────────────────────── */
+#bg{position:fixed;inset:0;z-index:-2;width:100%;height:100%;pointer-events:none}
+.veil{position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(ellipse 70% 50% at 50% 0%,transparent 30%,var(--bg) 82%)}
 
-fieldset{border:1px solid var(--line);background:var(--panel);padding:18px;margin:0 0 16px;border-radius:4px}
-legend{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3);padding:0 6px}
-label{display:block;font-size:12.5px;color:var(--fg-2);margin:12px 0 6px}
-label:first-of-type{margin-top:0}
-input[type=text],textarea,select{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);
-  border-radius:3px;padding:9px 11px;font-family:"JetBrains Mono",monospace;font-size:12.5px}
-textarea{resize:vertical;min-height:132px;line-height:1.5}
-input:focus,textarea:focus,select:focus{outline:2px solid var(--res);outline-offset:1px;border-color:transparent}
+.wrap{max-width:1120px;margin:0 auto;padding:26px 20px 72px}
+
+/* ── header ─────────────────────────────────────────────────────── */
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);padding-bottom:22px;margin-bottom:30px}
+h1{font-family:"JetBrains Mono",monospace;font-size:26px;font-weight:700;letter-spacing:-.03em;margin:0 0 10px}
+h1 span{color:var(--researcher)}
+.sub{color:var(--fg-2);font-size:14.5px;margin:0;max-width:66ch}
+.links{margin-top:15px;display:flex;gap:18px;flex-wrap:wrap;font-family:"JetBrains Mono",monospace;font-size:12px}
+.links a{text-decoration:none;border-bottom:1px solid transparent;padding-bottom:2px}
+.links a:hover{border-bottom-color:currentColor}
+.tt{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);
+  color:var(--fg-2);border-radius:99px;padding:7px 13px;cursor:pointer;
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.06em;flex-shrink:0;
+  width:auto;margin:0}
+.tt:hover{transform:none;filter:none}
+.tt:hover{color:var(--fg);border-color:var(--researcher)}
+.tt:focus-visible{outline:2px solid var(--researcher);outline-offset:2px}
+
+/* ── legend rail ────────────────────────────────────────────────── */
+.rail{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:26px}
+.node{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+  border-radius:3px;padding:8px 13px;font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--fg-2)}
+.node i{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.arrow{color:var(--fg-3);align-self:center;font-size:13px}
+
+/* ── layout ─────────────────────────────────────────────────────── */
+.grid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:22px;align-items:start}
+@media(max-width:880px){.grid{grid-template-columns:1fr}}
+
+.card{border:1px solid var(--line);background:var(--panel);border-radius:5px;box-shadow:var(--shadow)}
+.card-h{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:13px 17px;border-bottom:1px solid var(--line-2)}
+.card-h b{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--fg-3);font-weight:500}
+.card-b{padding:18px 17px}
+
+label{display:block;font-size:12.5px;color:var(--fg-2);margin:14px 0 7px}
+label:first-child{margin-top:0}
+input[type=text],textarea,select{width:100%;background:var(--bg-2);color:var(--fg);
+  border:1px solid var(--line);border-radius:3px;padding:10px 12px;
+  font-family:"JetBrains Mono",monospace;font-size:12.5px}
+textarea{resize:vertical;min-height:124px;line-height:1.55}
+:is(input,textarea,select):focus{outline:2px solid var(--researcher);outline-offset:1px;border-color:transparent}
 .row{display:flex;gap:12px}.row>div{flex:1}
-button{font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:500;border:none;border-radius:3px;
-  padding:11px 18px;background:var(--res);color:#07100D;cursor:pointer;width:100%;margin-top:16px}
-button:disabled{opacity:.55;cursor:progress}
-button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
-.presets{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
-.presets button{width:auto;margin:0;background:var(--panel-2);color:var(--fg-2);font-size:11px;padding:6px 10px;border:1px solid var(--line)}
-.presets button:hover{color:var(--res);border-color:var(--res)}
 
-.out{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:18px;min-height:260px}
-.stat{display:flex;gap:18px;flex-wrap:wrap;font-family:"JetBrains Mono",monospace;font-size:11px;
-  color:var(--fg-3);border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:14px}
+button{font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:500;border:1px solid var(--researcher);
+  border-radius:3px;padding:12px 18px;background:var(--researcher);color:var(--bg);cursor:pointer;width:100%;
+  margin-top:18px;transition:filter .15s ease,transform .15s ease}
+button:hover:not(:disabled){filter:brightness(1.08);transform:translateY(-1px)}
+button:disabled{opacity:.5;cursor:progress}
+button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+.presets button{width:auto;margin:0;background:var(--panel-2);color:var(--fg-2);border-color:var(--line);
+  font-size:11px;padding:6px 10px}
+.presets button:hover{color:var(--researcher);border-color:var(--researcher);transform:none;filter:none}
+.hint{color:var(--fg-3);font-size:11.5px;margin:11px 0 0;font-family:"JetBrains Mono",monospace}
+
+/* ── output ─────────────────────────────────────────────────────── */
+.stat{display:flex;gap:16px;flex-wrap:wrap;font-family:"JetBrains Mono",monospace;font-size:11px;
+  color:var(--fg-3);padding:12px 17px;border-bottom:1px solid var(--line-2);background:var(--panel-2)}
 .stat b{color:var(--fg);font-weight:500}
-.step{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-family:"JetBrains Mono",monospace;font-size:12.5px;
-  opacity:0;transform:translateX(-6px);animation:in .3s ease forwards}
-@keyframes in{to{opacity:1;transform:none}}
-.tag{flex:0 0 auto;min-width:74px;text-align:center;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
-  padding:2px 7px;border-radius:2px;border:1px solid currentColor}
-.planner{color:var(--plan)}.researcher{color:var(--res)}.executor{color:var(--exec)}.critic{color:var(--crit)}
+.steps{padding:8px 17px 4px}
+.step{display:flex;gap:11px;align-items:baseline;padding:8px 0;
+  font-family:"JetBrains Mono",monospace;font-size:12.5px;
+  opacity:0;transform:translateX(-8px);animation:slide .32s cubic-bezier(.22,1,.36,1) forwards}
+@keyframes slide{to{opacity:1;transform:none}}
+.tag{flex:0 0 auto;min-width:78px;text-align:center;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 8px;border-radius:2px;border:1px solid currentColor;font-weight:500}
+.t-planner{color:var(--planner)}.t-researcher{color:var(--researcher)}
+.t-executor{color:var(--executor)}.t-critic{color:var(--critic)}
 .step em{font-style:normal;color:var(--fg-2)}
-.verdict{margin-top:16px;padding:12px 14px;border-radius:3px;font-family:"JetBrains Mono",monospace;font-size:12.5px}
-.v-pass{background:rgba(158,206,106,.1);border:1px solid rgba(158,206,106,.35);color:var(--ok)}
-.v-retry,.v-escalate{background:rgba(247,118,142,.1);border:1px solid rgba(247,118,142,.35);color:var(--crit)}
-pre{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:13px;overflow:auto;
-  font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--fg-2);margin:14px 0 0;max-height:300px}
-.hint{color:var(--fg-3);font-size:11.5px;margin-top:10px;font-family:"JetBrains Mono",monospace}
-.note{border-left:2px solid var(--exec);padding:10px 0 10px 14px;margin-top:24px;color:var(--fg-2);font-size:13px}
-@media (prefers-reduced-motion:reduce){.step{animation:none;opacity:1;transform:none}}
+.verdict{margin:6px 17px 17px;padding:13px 15px;border-radius:3px;
+  font-family:"JetBrains Mono",monospace;font-size:12.5px;line-height:1.5}
+.v-pass{background:color-mix(in srgb,var(--ok) 12%,transparent);border:1px solid color-mix(in srgb,var(--ok) 38%,transparent);color:var(--ok)}
+.v-halt{background:color-mix(in srgb,var(--executor) 12%,transparent);border:1px solid color-mix(in srgb,var(--executor) 40%,transparent);color:var(--executor)}
+.v-fail{background:color-mix(in srgb,var(--critic) 12%,transparent);border:1px solid color-mix(in srgb,var(--critic) 38%,transparent);color:var(--critic)}
+pre{background:var(--bg-2);border:1px solid var(--line);border-radius:3px;padding:14px;overflow:auto;
+  font-family:"JetBrains Mono",monospace;font-size:11.5px;color:var(--fg-2);margin:0 17px 17px;max-height:280px;line-height:1.6}
+.empty{padding:46px 17px;text-align:center;color:var(--fg-3);font-family:"JetBrains Mono",monospace;font-size:12px}
+
+.note{border-left:2px solid var(--executor);padding:12px 0 12px 16px;margin-top:30px;
+  color:var(--fg-2);font-size:13.5px;max-width:76ch}
+@media (prefers-reduced-motion:reduce){.step{animation:none;opacity:1;transform:none}
+  button:hover:not(:disabled){transform:none}}
 </style>
 </head>
 <body>
-<div class="wrap">
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="veil" aria-hidden="true"></div>
 
+<div class="wrap">
 <header>
-  <h1>Agent<span>Forge</span></h1>
-  <p class="sub">Four agents — planner, researcher, executor, critic — wired as an explicit LangGraph state machine.
-  The critic can approve, send work back to the researcher, send it back to the executor, or escalate. That is four
-  edges out of one node, which is why this is a graph and not a prompt chain.</p>
-  <div class="links">
-    <a href="https://github.com/utkarsh-landge/agentforge" target="_blank" rel="noopener">Source on GitHub</a>
-    <a href="/api/docs" target="_blank" rel="noopener">API docs</a>
-    <span style="color:var(--fg-3)">Runs the deterministic backend — no API key, no cost</span>
+  <div>
+    <h1>Agent<span>Forge</span></h1>
+    <p class="sub">Four agents wired as an explicit state machine. After execution the critic can approve,
+    send work back to the researcher, send it back to the executor, or escalate — four edges out of one node,
+    which is why this is a graph and not a prompt chain.</p>
+    <div class="links">
+      <a href="https://github.com/utkarsh-landge/agentforge" target="_blank" rel="noopener">Source</a>
+      <a href="/api/docs" target="_blank" rel="noopener">API</a>
+      <span style="color:var(--fg-3)">Deterministic backend — no key, no cost</span>
+    </div>
   </div>
+  <button class="tt" id="tt" aria-label="Switch theme"><span id="tti">◑</span><span id="ttl">Light</span></button>
 </header>
 
+<div class="rail">
+  <span class="node"><i style="background:var(--planner)"></i>planner</span><span class="arrow">→</span>
+  <span class="node"><i style="background:var(--researcher)"></i>researcher</span><span class="arrow">→</span>
+  <span class="node"><i style="background:var(--executor)"></i>executor</span><span class="arrow">→</span>
+  <span class="node"><i style="background:var(--critic)"></i>critic</span><span class="arrow">⟲</span>
+  <span class="node" style="border-style:dashed">retry routes back</span>
+</div>
+
 <div class="grid">
-  <form id="f">
-    <fieldset>
-      <legend>Input</legend>
+  <form id="f" class="card">
+    <div class="card-h"><b>Input</b></div>
+    <div class="card-b">
       <label for="goal">Goal</label>
       <input type="text" id="goal" value="Compare vector database options on cost and recommend one">
 
-      <label for="corpus">Corpus — one fact per line, this is all the agents may cite</label>
+      <label for="corpus">Corpus — one fact per line. This is all the agents may cite.</label>
       <textarea id="corpus">pgvector runs inside PostgreSQL and needs no extra service (vector database)
 Pinecone is billed per pod hour (vector database)
 Weaviate supports hybrid search combining BM25 and dense vectors (vector database)
 Milvus is open source and scales horizontally (vector database)</textarea>
 
       <div class="presets">
-        <button type="button" data-preset="indirect">try: corpus that never names the category</button>
-        <button type="button" data-preset="thin">try: not enough evidence</button>
-        <button type="button" data-preset="risky">try: action needing approval</button>
+        <button type="button" data-preset="indirect">corpus never names the category</button>
+        <button type="button" data-preset="thin">not enough evidence</button>
+        <button type="button" data-preset="risky">action needs approval</button>
       </div>
 
-      <div class="row" style="margin-top:14px">
-        <div>
-          <label for="min_evidence">Evidence required</label>
-          <select id="min_evidence"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
-        </div>
-        <div>
-          <label for="max_attempts">Retries allowed</label>
-          <select id="max_attempts"><option>0</option><option>1</option><option selected>2</option><option>3</option></select>
-        </div>
+      <div class="row" style="margin-top:15px">
+        <div><label for="min_evidence">Evidence required</label>
+          <select id="min_evidence"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></div>
+        <div><label for="max_attempts">Retries allowed</label>
+          <select id="max_attempts"><option>0</option><option>1</option><option selected>2</option><option>3</option></select></div>
       </div>
       <p class="hint">Set retries to 0 for the single-pass baseline.</p>
-
       <button type="submit" id="go">Run the graph</button>
-    </fieldset>
+    </div>
   </form>
 
-  <div>
-    <div class="out" id="out">
-      <p class="hint">Press <b>Run the graph</b>. Each line below is one node executing.</p>
-    </div>
+  <div class="card" id="outcard">
+    <div class="card-h"><b>Execution trace</b><span class="hint" style="margin:0" id="hdr">idle</span></div>
+    <div id="out"><p class="empty">Press <b>Run the graph</b> — each line is one node executing.</p></div>
   </div>
 </div>
 
-<p class="note">The demo runs a deterministic backend rather than a language model, so it is free to host and
-identical on every run. That makes the orchestration — routing, retries, the approval halt — observable on its own,
-which is the part worth showing. With an API key the same graph runs against a real provider; see the README.</p>
-
+<p class="note">This demo runs a deterministic backend rather than a language model, so it is free to host and
+identical on every run. That is deliberate: it makes the orchestration — routing, retries, the approval halt —
+observable on its own, which is the part worth showing. With an API key the same graph runs against a real
+provider. See the README for what the eval numbers do and do not establish.</p>
 </div>
 
 <script>
+/* ── theme ─────────────────────────────────────────────────────── */
+const root = document.documentElement;
+const saved = (() => { try { return localStorage.getItem("af-theme"); } catch { return null; } })();
+if (saved) root.dataset.theme = saved;
+else if (window.matchMedia("(prefers-color-scheme: light)").matches) root.dataset.theme = "light";
+const syncLabel = () => {
+  const dark = root.dataset.theme === "dark";
+  document.getElementById("tti").textContent = dark ? "◑" : "◐";
+  document.getElementById("ttl").textContent = dark ? "Light" : "Dark";
+};
+syncLabel();
+document.getElementById("tt").addEventListener("click", () => {
+  root.dataset.theme = root.dataset.theme === "dark" ? "light" : "dark";
+  try { localStorage.setItem("af-theme", root.dataset.theme); } catch {}
+  syncLabel();
+  paintColors();
+});
+
+/* ── background: the four agents as a live graph ───────────────── */
+const cv = document.getElementById("bg");
+const ctx = cv.getContext("2d");
+const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+let W = 0, H = 0, COL = {}, nodes = [], edges = [], pulses = [];
+
+function paintColors() {
+  const s = getComputedStyle(root);
+  COL = {
+    planner: s.getPropertyValue("--planner").trim(),
+    researcher: s.getPropertyValue("--researcher").trim(),
+    executor: s.getPropertyValue("--executor").trim(),
+    critic: s.getPropertyValue("--critic").trim(),
+    line: s.getPropertyValue("--line").trim(),
+  };
+}
+
+function layout() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const cx = W * 0.5, cy = H * 0.42, r = Math.min(W, H) * 0.27;
+  nodes = [
+    { k: "planner",    x: cx - r,       y: cy - r * 0.55 },
+    { k: "researcher", x: cx + r * 0.1, y: cy - r * 0.85 },
+    { k: "executor",   x: cx + r,       y: cy + r * 0.1  },
+    { k: "critic",     x: cx - r * 0.1, y: cy + r * 0.8  },
+  ];
+  edges = [[0, 1], [1, 2], [2, 3], [3, 1], [3, 2]];
+}
+
+function spawn() {
+  const [a, b] = edges[Math.floor(Math.random() * edges.length)];
+  pulses.push({ a, b, t: 0, v: 0.0035 + Math.random() * 0.004 });
+}
+
+let last = 0;
+function frame(now) {
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.lineWidth = 1;
+  edges.forEach(([a, b]) => {
+    ctx.strokeStyle = COL.line;
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath();
+    ctx.moveTo(nodes[a].x, nodes[a].y);
+    ctx.lineTo(nodes[b].x, nodes[b].y);
+    ctx.stroke();
+  });
+
+  if (!reduce) {
+    if (now - last > 620) { spawn(); last = now; }
+    pulses = pulses.filter((p) => p.t < 1);
+    pulses.forEach((p) => {
+      p.t += p.v;
+      const A = nodes[p.a], B = nodes[p.b];
+      const x = A.x + (B.x - A.x) * p.t, y = A.y + (B.y - A.y) * p.t;
+      ctx.globalAlpha = 0.5 * Math.sin(Math.PI * p.t);
+      ctx.fillStyle = COL[nodes[p.a].k];
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, 6.2832); ctx.fill();
+    });
+  }
+
+  nodes.forEach((n) => {
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = COL[n.k];
+    ctx.beginPath(); ctx.arc(n.x, n.y, 26, 0, 6.2832); ctx.fill();
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath(); ctx.arc(n.x, n.y, 4.5, 0, 6.2832); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  requestAnimationFrame(frame);
+}
+
+paintColors(); layout(); requestAnimationFrame(frame);
+let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(layout, 150); });
+
+/* ── demo ──────────────────────────────────────────────────────── */
 const PRESETS = {
-  indirect: {
-    goal: "Compare message queue options on latency and recommend one",
+  indirect: { goal: "Compare message queue options on latency and recommend one",
     corpus: ["Redis Streams requires an operator to run inside Kubernetes",
              "SQS keeps p99 read latency under ten milliseconds",
              "NATS supports horizontal scaling across zones",
-             "Pulsar is open source under a permissive licence"],
-    min_evidence: 2, max_attempts: 2,
-  },
-  thin: {
-    goal: "Compare cache layers on durability and recommend one",
-    corpus: ["Redis persists to disk with AOF (cache layer)"],
-    min_evidence: 3, max_attempts: 2,
-  },
-  risky: {
-    goal: "Draft and send the comparison to the team",
+             "Pulsar is open source under a permissive licence"], min_evidence: 2, max_attempts: 2 },
+  thin: { goal: "Compare cache layers on durability and recommend one",
+    corpus: ["Redis persists to disk with AOF (cache layer)"], min_evidence: 3, max_attempts: 2 },
+  risky: { goal: "Draft and send the comparison to the team",
     corpus: ["Trino federates queries across sources (query engine)",
-             "DuckDB runs in-process with no server (query engine)"],
-    min_evidence: 1, max_attempts: 1,
-  },
+             "DuckDB runs in-process with no server (query engine)"], min_evidence: 1, max_attempts: 1 },
 };
-
 const $ = (id) => document.getElementById(id);
 
 document.querySelectorAll("[data-preset]").forEach((b) =>
@@ -161,68 +316,61 @@ document.querySelectorAll("[data-preset]").forEach((b) =>
     $("corpus").value = p.corpus.join("\n");
     $("min_evidence").value = String(p.min_evidence);
     $("max_attempts").value = String(p.max_attempts);
-  })
-);
+  }));
 
-function agentOf(line) {
-  const name = line.split(":")[0].trim();
-  return ["planner", "researcher", "executor", "critic"].includes(name) ? name : "planner";
-}
+const agentOf = (line) => {
+  const n = line.split(":")[0].trim();
+  return ["planner", "researcher", "executor", "critic"].includes(n) ? n : "planner";
+};
 
 $("f").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const btn = $("go");
-  btn.disabled = true;
-  btn.textContent = "Running…";
-  const out = $("out");
-  out.innerHTML = '<p class="hint">Executing nodes…</p>';
+  const btn = $("go"); btn.disabled = true; btn.textContent = "Running…";
+  $("hdr").textContent = "executing";
+  $("out").innerHTML = '<p class="empty">Executing nodes…</p>';
 
   try {
-    const res = await fetch("/api/run", {
-      method: "POST",
+    const res = await fetch("/api/run", { method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         goal: $("goal").value,
         corpus: $("corpus").value.split("\n").map((s) => s.trim()).filter(Boolean),
         min_evidence: Number($("min_evidence").value),
         max_attempts: Number($("max_attempts").value),
-      }),
-    });
+      }) });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const d = await res.json();
 
-    let html = `<div class="stat">
+    let h = `<div class="stat">
       <span>retries <b>${d.attempts}</b></span>
       <span>evidence <b>${d.evidence_found}</b></span>
-      <span>model calls <b>${d.usage.calls}</b></span>
+      <span>calls <b>${d.usage.calls}</b></span>
       <span>cached <b>${d.usage.cached}</b></span>
-      <span>cost units <b>${d.usage.cost_units}</b></span>
-      <span>state <b>${d.checkpointer}</b></span>
-    </div>`;
+      <span>cost <b>${d.usage.cost_units}</b></span>
+      <span>state <b>${d.checkpointer}</b></span></div><div class="steps">`;
 
     d.trace.forEach((line, i) => {
       const a = agentOf(line);
-      const rest = line.slice(line.indexOf(":") + 1).trim();
-      html += `<div class="step" style="animation-delay:${i * 70}ms">
-        <span class="tag ${a}">${a}</span><em>${rest.replace(/</g, "&lt;")}</em></div>`;
+      h += `<div class="step" style="animation-delay:${i * 80}ms">
+        <span class="tag t-${a}">${a}</span><em>${line.slice(line.indexOf(":") + 1).trim().replace(/</g, "&lt;")}</em></div>`;
     });
+    h += "</div>";
 
     if (d.awaiting_approval) {
-      html += `<div class="verdict v-retry">HALTED for human approval —
-        ${d.awaiting_approval.tools.join(", ")} has an external side effect.
-        The graph stops here rather than acting on its own.</div>`;
+      h += `<div class="verdict v-halt">HALTED — <b>${d.awaiting_approval.tools.join(", ")}</b> has an external
+        side effect. The graph stops rather than acting on its own.</div>`;
     } else if (d.verdict) {
-      const cls = d.verdict === "pass" ? "v-pass" : "v-retry";
-      html += `<div class="verdict ${cls}">critic: ${d.verdict} — ${d.reason}</div>`;
+      h += `<div class="verdict ${d.verdict === "pass" ? "v-pass" : "v-fail"}">critic: ${d.verdict} — ${d.reason}</div>`;
     }
+    if (d.final) h += `<pre>${d.final.replace(/</g, "&lt;")}</pre>`;
 
-    if (d.final) html += `<pre>${d.final.replace(/</g, "&lt;")}</pre>`;
-    out.innerHTML = html;
+    $("out").innerHTML = h;
+    $("hdr").textContent = d.verdict || (d.awaiting_approval ? "halted" : "done");
   } catch (err) {
-    out.innerHTML = `<div class="verdict v-retry">Could not reach the API: ${err.message}</div>`;
+    $("out").innerHTML = `<div class="verdict v-fail">Could not reach the API: ${err.message}</div>`;
+    $("hdr").textContent = "error";
   } finally {
-    btn.disabled = false;
-    btn.textContent = "Run the graph";
+    btn.disabled = false; btn.textContent = "Run the graph";
   }
 });
 </script>
