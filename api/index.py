@@ -37,13 +37,16 @@ class RunRequest(BaseModel):
     approve: bool = False
 
 
-@app.get("/api/health")
-def health() -> dict:
-    return {"ok": True}
+# Vercel rewrites route on the *destination* path, so the function receives
+# "/api/index.py" rather than the caller's "/api/run". Every GET under /api is
+# a health check and every POST is a run, so match on method and accept any path.
+@app.get("/{full_path:path}")
+def health(full_path: str = "") -> dict:
+    return {"ok": True, "service": "agentforge", "path": full_path}
 
 
-@app.post("/api/run")
-def run(req: RunRequest) -> dict:
+@app.post("/{full_path:path}")
+def run(req: RunRequest, full_path: str = "") -> dict:
     client = ModelClient(offline=True)
     memory = MemoryStore(embed=False)
     for doc in req.corpus[:MAX_CORPUS]:

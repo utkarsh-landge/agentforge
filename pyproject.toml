@@ -7,6 +7,9 @@ dependencies = [
   "langgraph>=0.2.28",
   "langchain-core>=0.3.0",
   "pydantic>=2.7",
+  # Serving deps live in the base set because Vercel's Python builder resolves
+  # from pyproject.toml and does not read the optional-dependency extras.
+  "fastapi>=0.115",
 ]
 
 [project.optional-dependencies]
