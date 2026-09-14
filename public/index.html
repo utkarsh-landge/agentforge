@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentForge</title>
+<meta name="description" content="A multi-agent workflow system — planner, researcher, executor and critic as an explicit LangGraph state machine. Run it live.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>◆</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#0C0E10; --panel:#14171A; --panel-2:#1B1F23; --line:#262B30;
+  --fg:#E8EAEC; --fg-2:#98A1A8; --fg-3:#5F686F;
+  --plan:#7AA2F7; --res:#7DCFB6; --exec:#E0AF68; --crit:#F7768E; --ok:#9ECE6A;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Inter,system-ui,sans-serif;line-height:1.55}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 60px}
+a{color:var(--res)}
+header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:26px}
+h1{font-family:"JetBrains Mono",monospace;font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0 0 8px}
+h1 span{color:var(--res)}
+.sub{color:var(--fg-2);font-size:14.5px;margin:0;max-width:70ch}
+.links{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-family:"JetBrains Mono",monospace;font-size:12px}
+
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:22px}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+fieldset{border:1px solid var(--line);background:var(--panel);padding:18px;margin:0 0 16px;border-radius:4px}
+legend{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3);padding:0 6px}
+label{display:block;font-size:12.5px;color:var(--fg-2);margin:12px 0 6px}
+label:first-of-type{margin-top:0}
+input[type=text],textarea,select{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);
+  border-radius:3px;padding:9px 11px;font-family:"JetBrains Mono",monospace;font-size:12.5px}
+textarea{resize:vertical;min-height:132px;line-height:1.5}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--res);outline-offset:1px;border-color:transparent}
+.row{display:flex;gap:12px}.row>div{flex:1}
+button{font-family:"JetBrains Mono",monospace;font-size:13px;font-weight:500;border:none;border-radius:3px;
+  padding:11px 18px;background:var(--res);color:#07100D;cursor:pointer;width:100%;margin-top:16px}
+button:disabled{opacity:.55;cursor:progress}
+button:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.presets{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.presets button{width:auto;margin:0;background:var(--panel-2);color:var(--fg-2);font-size:11px;padding:6px 10px;border:1px solid var(--line)}
+.presets button:hover{color:var(--res);border-color:var(--res)}
+
+.out{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:18px;min-height:260px}
+.stat{display:flex;gap:18px;flex-wrap:wrap;font-family:"JetBrains Mono",monospace;font-size:11px;
+  color:var(--fg-3);border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:14px}
+.stat b{color:var(--fg);font-weight:500}
+.step{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-family:"JetBrains Mono",monospace;font-size:12.5px;
+  opacity:0;transform:translateX(-6px);animation:in .3s ease forwards}
+@keyframes in{to{opacity:1;transform:none}}
+.tag{flex:0 0 auto;min-width:74px;text-align:center;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  padding:2px 7px;border-radius:2px;border:1px solid currentColor}
+.planner{color:var(--plan)}.researcher{color:var(--res)}.executor{color:var(--exec)}.critic{color:var(--crit)}
+.step em{font-style:normal;color:var(--fg-2)}
+.verdict{margin-top:16px;padding:12px 14px;border-radius:3px;font-family:"JetBrains Mono",monospace;font-size:12.5px}
+.v-pass{background:rgba(158,206,106,.1);border:1px solid rgba(158,206,106,.35);color:var(--ok)}
+.v-retry,.v-escalate{background:rgba(247,118,142,.1);border:1px solid rgba(247,118,142,.35);color:var(--crit)}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:13px;overflow:auto;
+  font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--fg-2);margin:14px 0 0;max-height:300px}
+.hint{color:var(--fg-3);font-size:11.5px;margin-top:10px;font-family:"JetBrains Mono",monospace}
+.note{border-left:2px solid var(--exec);padding:10px 0 10px 14px;margin-top:24px;color:var(--fg-2);font-size:13px}
+@media (prefers-reduced-motion:reduce){.step{animation:none;opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Agent<span>Forge</span></h1>
+  <p class="sub">Four agents — planner, researcher, executor, critic — wired as an explicit LangGraph state machine.
+  The critic can approve, send work back to the researcher, send it back to the executor, or escalate. That is four
+  edges out of one node, which is why this is a graph and not a prompt chain.</p>
+  <div class="links">
+    <a href="https://github.com/utkarsh-landge/agentforge" target="_blank" rel="noopener">Source on GitHub</a>
+    <a href="/api/docs" target="_blank" rel="noopener">API docs</a>
+    <span style="color:var(--fg-3)">Runs the deterministic backend — no API key, no cost</span>
+  </div>
+</header>
+
+<div class="grid">
+  <form id="f">
+    <fieldset>
+      <legend>Input</legend>
+      <label for="goal">Goal</label>
+      <input type="text" id="goal" value="Compare vector database options on cost and recommend one">
+
+      <label for="corpus">Corpus — one fact per line, this is all the agents may cite</label>
+      <textarea id="corpus">pgvector runs inside PostgreSQL and needs no extra service (vector database)
+Pinecone is billed per pod hour (vector database)
+Weaviate supports hybrid search combining BM25 and dense vectors (vector database)
+Milvus is open source and scales horizontally (vector database)</textarea>
+
+      <div class="presets">
+        <button type="button" data-preset="indirect">try: corpus that never names the category</button>
+        <button type="button" data-preset="thin">try: not enough evidence</button>
+        <button type="button" data-preset="risky">try: action needing approval</button>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label for="min_evidence">Evidence required</label>
+          <select id="min_evidence"><option>1</option><option selected>2</option><option>3</option><option>4</option></select>
+        </div>
+        <div>
+          <label for="max_attempts">Retries allowed</label>
+          <select id="max_attempts"><option>0</option><option>1</option><option selected>2</option><option>3</option></select>
+        </div>
+      </div>
+      <p class="hint">Set retries to 0 for the single-pass baseline.</p>
+
+      <button type="submit" id="go">Run the graph</button>
+    </fieldset>
+  </form>
+
+  <div>
+    <div class="out" id="out">
+      <p class="hint">Press <b>Run the graph</b>. Each line below is one node executing.</p>
+    </div>
+  </div>
+</div>
+
+<p class="note">The demo runs a deterministic backend rather than a language model, so it is free to host and
+identical on every run. That makes the orchestration — routing, retries, the approval halt — observable on its own,
+which is the part worth showing. With an API key the same graph runs against a real provider; see the README.</p>
+
+</div>
+
+<script>
+const PRESETS = {
+  indirect: {
+    goal: "Compare message queue options on latency and recommend one",
+    corpus: ["Redis Streams requires an operator to run inside Kubernetes",
+             "SQS keeps p99 read latency under ten milliseconds",
+             "NATS supports horizontal scaling across zones",
+             "Pulsar is open source under a permissive licence"],
+    min_evidence: 2, max_attempts: 2,
+  },
+  thin: {
+    goal: "Compare cache layers on durability and recommend one",
+    corpus: ["Redis persists to disk with AOF (cache layer)"],
+    min_evidence: 3, max_attempts: 2,
+  },
+  risky: {
+    goal: "Draft and send the comparison to the team",
+    corpus: ["Trino federates queries across sources (query engine)",
+             "DuckDB runs in-process with no server (query engine)"],
+    min_evidence: 1, max_attempts: 1,
+  },
+};
+
+const $ = (id) => document.getElementById(id);
+
+document.querySelectorAll("[data-preset]").forEach((b) =>
+  b.addEventListener("click", () => {
+    const p = PRESETS[b.dataset.preset];
+    $("goal").value = p.goal;
+    $("corpus").value = p.corpus.join("\n");
+    $("min_evidence").value = String(p.min_evidence);
+    $("max_attempts").value = String(p.max_attempts);
+  })
+);
+
+function agentOf(line) {
+  const name = line.split(":")[0].trim();
+  return ["planner", "researcher", "executor", "critic"].includes(name) ? name : "planner";
+}
+
+$("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("go");
+  btn.disabled = true;
+  btn.textContent = "Running…";
+  const out = $("out");
+  out.innerHTML = '<p class="hint">Executing nodes…</p>';
+
+  try {
+    const res = await fetch("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        goal: $("goal").value,
+        corpus: $("corpus").value.split("\n").map((s) => s.trim()).filter(Boolean),
+        min_evidence: Number($("min_evidence").value),
+        max_attempts: Number($("max_attempts").value),
+      }),
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const d = await res.json();
+
+    let html = `<div class="stat">
+      <span>retries <b>${d.attempts}</b></span>
+      <span>evidence <b>${d.evidence_found}</b></span>
+      <span>model calls <b>${d.usage.calls}</b></span>
+      <span>cached <b>${d.usage.cached}</b></span>
+      <span>cost units <b>${d.usage.cost_units}</b></span>
+      <span>state <b>${d.checkpointer}</b></span>
+    </div>`;
+
+    d.trace.forEach((line, i) => {
+      const a = agentOf(line);
+      const rest = line.slice(line.indexOf(":") + 1).trim();
+      html += `<div class="step" style="animation-delay:${i * 70}ms">
+        <span class="tag ${a}">${a}</span><em>${rest.replace(/</g, "&lt;")}</em></div>`;
+    });
+
+    if (d.awaiting_approval) {
+      html += `<div class="verdict v-retry">HALTED for human approval —
+        ${d.awaiting_approval.tools.join(", ")} has an external side effect.
+        The graph stops here rather than acting on its own.</div>`;
+    } else if (d.verdict) {
+      const cls = d.verdict === "pass" ? "v-pass" : "v-retry";
+      html += `<div class="verdict ${cls}">critic: ${d.verdict} — ${d.reason}</div>`;
+    }
+
+    if (d.final) html += `<pre>${d.final.replace(/</g, "&lt;")}</pre>`;
+    out.innerHTML = html;
+  } catch (err) {
+    out.innerHTML = `<div class="verdict v-retry">Could not reach the API: ${err.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Run the graph";
+  }
+});
+</script>
+</body>
+</html>
